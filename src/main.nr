@@ -2,7 +2,7 @@ use dep::std::println;
 
 
 // quantized arithmetic mul
-// (x_scale_reciprocal * (x_quantized - x_zero_point)) * (y_scale_reciprocal * (y_quantized - y_zero_point)) / z_scale_reciprocal + z_zero_point;
+// ((x_quantized - x_zero_point) / x_scale_reciprocal) * ((y_quantized - y_zero_point) / y_scale_reciprocal) * z_scale_reciprocal + z_zero_point;
 fn mul(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_quantized: Field, y_zero_point: Field, y_scale_reciprocal: Field, z_zero_point: Field, z_scale_reciprocal: Field) -> Field{
    let z_quantized =
        1 / (x_scale_reciprocal * y_scale_reciprocal / z_scale_reciprocal) *
@@ -13,7 +13,7 @@ fn mul(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_qua
 }
 
 // quantized arithmetic div
-// (x_scale_reciprocal * (x_quantized - x_zero_point)) / (y_scale_reciprocal * (y_quantized - y_zero_point)) / z_scale_reciprocal + z_zero_point;
+// ((x_quantized - x_zero_point) / x_scale_reciprocal) / ((y_quantized - y_zero_point) / y_scale_reciprocal) * z_scale_reciprocal + z_zero_point;
 fn div(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_quantized: Field, y_zero_point: Field, y_scale_reciprocal: Field, z_zero_point: Field, z_scale_reciprocal: Field) -> Field{
    let z_quantized =
        1 / ( x_scale_reciprocal / y_scale_reciprocal / z_scale_reciprocal) *
@@ -24,7 +24,7 @@ fn div(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_qua
 }
 
 // quantized arithmetic add
-// ((x_scale_reciprocal * (x_quantized - x_zero_point)) + (y_scale_reciprocal * (y_quantized - y_zero_point))) / z_scale_reciprocal + z_zero_point;
+// ((x_quantized - x_zero_point) / x_scale_reciprocal) + ((y_quantized - y_zero_point) / y_scale_reciprocal) * z_scale_reciprocal + z_zero_point;
 fn add(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_quantized: Field, y_zero_point: Field, y_scale_reciprocal: Field, z_zero_point: Field, z_scale_reciprocal: Field) -> Field{
    let mut multiplier_x_y: Field = 0;
    let x_scale_100: u8 = (x_scale_reciprocal * 100) as u8;
@@ -34,9 +34,9 @@ fn add(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_qua
    } else {
        multiplier_x_y = 2 * x_scale_reciprocal;
    }
-   let multiplier_x = x_scale_reciprocal / multiplier_x_y;
-   let multiplier_y = y_scale_reciprocal / multiplier_x_y;
-   let multiplier_x_y_z = multiplier_x_y / z_scale_reciprocal;
+   let multiplier_x = 1 / x_scale_reciprocal / multiplier_x_y;
+   let multiplier_y = 1 / y_scale_reciprocal / multiplier_x_y;
+   let multiplier_x_y_z = multiplier_x_y * z_scale_reciprocal;
    let z_quantized =
        multiplier_x_y_z *
        (multiplier_x * (x_quantized - x_zero_point) + multiplier_y * (y_quantized - y_zero_point)) +
@@ -45,7 +45,7 @@ fn add(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_qua
 }
 
 // quantized arithmetic sub
-// ((x_scale_reciprocal * (x_quantized - x_zero_point)) - (y_scale_reciprocal * (y_quantized - y_zero_point))) / z_scale_reciprocal + z_zero_point;
+// ((x_quantized - x_zero_point) / x_scale_reciprocal) - ((y_quantized - y_zero_point) / y_scale_reciprocal) * z_scale_reciprocal + z_zero_point;
 fn sub(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_quantized: Field, y_zero_point: Field, y_scale_reciprocal: Field, z_zero_point: Field, z_scale_reciprocal: Field) -> Field{
    let mut multiplier_x_y: Field = 0;
    let x_scale_100: u8 = (x_scale_reciprocal * 100) as u8;
@@ -55,9 +55,9 @@ fn sub(x_quantized: Field, x_zero_point: Field, x_scale_reciprocal: Field, y_qua
    } else {
        multiplier_x_y = 2 * x_scale_reciprocal;
    }
-   let multiplier_x = x_scale_reciprocal / multiplier_x_y;
-   let multiplier_y = y_scale_reciprocal / multiplier_x_y;
-   let multiplier_x_y_z = multiplier_x_y / z_scale_reciprocal;
+   let multiplier_x = 1 / x_scale_reciprocal / multiplier_x_y;
+   let multiplier_y = 1 / y_scale_reciprocal / multiplier_x_y;
+   let multiplier_x_y_z = multiplier_x_y * z_scale_reciprocal;
    let z_quantized =
        multiplier_x_y_z *
        (multiplier_x * (x_quantized - x_zero_point) - multiplier_y * (y_quantized - y_zero_point)) +
@@ -113,7 +113,7 @@ fn test_add_n_p(){
     // -0.6 + 0.3 = -0.3
     let z_quantized_add = add(50, 127, 128, 165, 127, 128, 127, 128);
     println(z_quantized_add);
-    // assert (z_quantized_add == 89);  // 88
+    // assert (z_quantized_add == 88);
 }
 
 #[test]
@@ -122,5 +122,5 @@ fn test_add_p_p(){
     // 0.1 + 0.2 = 0.3
     let z_quantized_add = add(140, 127, 128, 153, 127, 128, 127, 128);
     println(z_quantized_add);
-    // assert (z_quantized_add == 165); // 166
+    // assert (z_quantized_add == 166);
 }
